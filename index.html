@@ -345,7 +345,7 @@ const NON_NEG_TASKS = ALL_TASKS.filter(t => t.nonNeg);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let state = {
-  apiUrl: '',
+  apiUrl: 'https://script.google.com/macros/s/AKfycbx5cpBv1xy5nKuwvNA5dKsPaSdkOej6uZtROlS_izcDtZs04QbVWf-VwheaUBeYQDWI/exec',
   weekKey: '',
   weekCounts: {},   // taskId -> count this week
   dayCounts: {},    // "YYYY-MM-DD" -> { taskId: bool }
@@ -376,14 +376,9 @@ function getWeekLabel(weekKey) {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 window.onload = function() {
-  const url = localStorage.getItem('habitTrackerApiUrl');
-  if (!url) {
-    document.getElementById('setup-overlay').style.display = 'flex';
-    document.getElementById('main-app').style.display = 'none';
-  } else {
-    state.apiUrl = url;
-    initApp();
-  }
+  document.getElementById('setup-overlay').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
+  initApp();
 };
 
 function saveApiUrl() {
