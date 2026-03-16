@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habit Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0f;
+    --surface: #1a1a1c;
+    --surface2: #222226;
+    --surface3: #2a2a2f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f0f0;
+    --text2: #9a9a9f;
+    --text3: #5a5a62;
+    --green: #3ddc84;
+    --green-dim: rgba(61,220,132,0.12);
+    --green-mid: rgba(61,220,132,0.25);
+    --amber: #f5a623;
+    --amber-dim: rgba(245,166,35,0.12);
+    --red: #ff5c5c;
+    --red-dim: rgba(255,92,92,0.1);
+    --blue: #5b8fff;
+    --blue-dim: rgba(91,143,255,0.12);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.12);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; }
+  
+  /* Layout */
+  .app { max-width: 480px; margin: 0 auto; padding: 20px 16px 100px; }
+  
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-top: 8px; }
+  .header-left h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .header-left .week-label { font-size: 12px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+  .sync-btn { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 14px; color: var(--text2); font-size: 12px; font-family: var(--font); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+  .sync-btn:hover { border-color: var(--green); color: var(--green); }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
+  .sync-dot.synced { background: var(--green); }
+  .sync-dot.syncing { background: var(--amber); animation: pulse 1s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Score Cards */
+  .score-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .scard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 12px; text-align: center; }
+  .scard-val { font-size: 26px; font-weight: 600; font-family: var(--mono); letter-spacing: -1px; }
+  .scard-val.green { color: var(--green); }
+  .scard-val.amber { color: var(--amber); }
+  .scard-val.red { color: var(--red); }
+  .scard-val.dim { color: var(--text2); }
+  .scard-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Tier Banner */
+  .tier-banner { border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); background: var(--surface); }
+  .tier-name { font-size: 16px; font-weight: 600; }
+  .tier-sub { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .tier-pill { font-size: 11px; font-family: var(--mono); padding: 5px 12px; border-radius: 99px; font-weight: 500; }
+
+  /* Progress bars */
+  .prog-block { margin-bottom: 14px; }
+  .prog-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  .prog-track { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease, background 0.3s; }
+
+  /* Day dots */
+  .day-row { display: flex; gap: 6px; margin-bottom: 20px; }
+  .day-dot { flex: 1; height: 34px; border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--border); font-size: 9px; color: var(--text3); gap: 2px; cursor: pointer; transition: all 0.15s; }
+  .day-dot .dname { text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+  .day-dot .dpts { font-family: var(--mono); font-size: 10px; }
+  .day-dot.win { background: var(--green-dim); border-color: rgba(61,220,132,0.3); }
+  .day-dot.win .dname { color: var(--green); }
+  .day-dot.win .dpts { color: var(--green); }
+  .day-dot.lose { background: var(--red-dim); border-color: rgba(255,92,92,0.2); }
+  .day-dot.lose .dname { color: var(--red); }
+  .day-dot.today { border-color: var(--text2); }
+  .day-dot.today .dname { color: var(--text); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 7px 14px; border-radius: 99px; font-size: 12px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text3); white-space: nowrap; font-family: var(--font); transition: all 0.15s; flex-shrink: 0; }
+  .tab:hover { border-color: var(--border2); color: var(--text2); }
+  .tab.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; }
+
+  /* Section */
+  .section-head { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; font-family: var(--mono); }
+
+  /* Task rows */
+  .task-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+  .task-item { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
+  .task-item:last-child { border-bottom: none; }
+  .task-item:hover { background: var(--surface2); }
+  .task-item.done { background: rgba(61,220,132,0.04); }
+  .checkmark { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .checkmark.checked { background: var(--green); border-color: var(--green); }
+  .checkmark svg { display: none; }
+  .checkmark.checked svg { display: block; }
+  .task-info { flex: 1; min-width: 0; }
+  .task-name { font-size: 13px; color: var(--text); line-height: 1.3; }
+  .task-meta { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+  .task-pts { text-align: right; flex-shrink: 0; }
+  .dpt { font-size: 13px; font-weight: 500; font-family: var(--mono); color: var(--green); }
+  .dpt.inactive { color: var(--text3); }
+  .wpt { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+  .wpt.bonus-tag { color: var(--amber); }
+  .wpt.penalty-tag { color: var(--red); }
+
+  /* Weekly unlocks panel */
+  .unlock-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+  .unlock-header { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .unlock-title { font-size: 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); }
+  .unlock-total { font-size: 12px; font-family: var(--mono); color: var(--green); }
+  .unlock-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .unlock-row:last-child { border-bottom: none; }
+  .unlock-name { flex: 1; font-size: 12px; color: var(--text2); }
+  .unlock-bar-wrap { width: 70px; }
+  .unlock-mini-track { height: 4px; background: var(--surface3); border-radius: 99px; overflow: hidden; }
+  .unlock-mini-fill { height: 100%; border-radius: 99px; background: var(--green); transition: width 0.3s; }
+  .unlock-mini-fill.partial { background: var(--amber); }
+  .unlock-prog { font-size: 10px; font-family: var(--mono); color: var(--text3); text-align: right; margin-top: 3px; }
+  .unlock-pts { font-size: 12px; font-family: var(--mono); font-weight: 500; min-width: 54px; text-align: right; }
+  .unlock-pts.locked { color: var(--text3); }
+  .unlock-pts.unlocked { color: var(--green); }
+  .unlock-pts.partial { color: var(--amber); }
+
+  /* Penalty panel */
+  .penalty-panel { background: var(--red-dim); border: 1px solid rgba(255,92,92,0.2); border-radius: var(--radius); padding: 14px; margin-bottom: 20px; }
+  .penalty-title { font-size: 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--red); margin-bottom: 10px; }
+  .penalty-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; color: var(--text2); }
+  .penalty-pts { color: var(--red); font-family: var(--mono); font-weight: 500; }
+
+  /* History panel */
+  .history-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+  .history-header { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .history-title { font-size: 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); }
+  .history-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .history-row:last-child { border-bottom: none; }
+  .history-week { font-size: 12px; font-family: var(--mono); color: var(--text2); flex: 1; }
+  .history-score { font-size: 13px; font-family: var(--mono); font-weight: 500; }
+  .history-tier { font-size: 11px; padding: 3px 10px; border-radius: 99px; }
+  .history-wins { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  /* Bottom nav */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(14,14,15,0.95); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex; }
+  .nav-item { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: var(--text3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); transition: color 0.15s; border: none; background: none; }
+  .nav-item:hover { color: var(--text2); }
+  .nav-item.active { color: var(--green); }
+  .nav-icon { font-size: 18px; line-height: 1; }
+
+  /* Setup overlay */
+  .setup-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .setup-card { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 28px 24px; max-width: 420px; width: 100%; }
+  .setup-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .setup-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; line-height: 1.5; }
+  .setup-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); font-family: var(--mono); margin-bottom: 8px; }
+  .setup-input { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 12px 14px; color: var(--text); font-family: var(--mono); font-size: 12px; margin-bottom: 20px; outline: none; transition: border-color 0.15s; }
+  .setup-input:focus { border-color: var(--green); }
+  .setup-btn { width: 100%; background: var(--green); color: #000; border: none; border-radius: var(--radius-sm); padding: 13px; font-size: 14px; font-weight: 600; font-family: var(--font); cursor: pointer; transition: opacity 0.15s; }
+  .setup-btn:hover { opacity: 0.9; }
+  .setup-hint { font-size: 11px; color: var(--text3); margin-top: 14px; line-height: 1.6; }
+  .setup-hint a { color: var(--blue); }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 18px; font-size: 13px; color: var(--text); opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 200; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Utility */
+  .hidden { display: none !important; }
+  .mt8 { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="setup-overlay" id="setup-overlay">
+  <div class="setup-card">
+    <div class="setup-title">Welcome to your tracker</div>
+    <div class="setup-sub">Paste your Google Apps Script Web App URL below to connect your data. This is a one-time setup.</div>
+    <div class="setup-label">Apps Script URL</div>
+    <input class="setup-input" id="api-url-input" placeholder="https://script.google.com/macros/s/..." />
+    <button class="setup-btn" onclick="saveApiUrl()">Connect &amp; Start</button>
+    <div class="setup-hint">
+      Don't have a URL yet? Follow the setup guide in the README.<br>
+      Your data will be saved to your Google Sheet automatically.
+    </div>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none">
+  <div class="header">
+    <div class="header-left">
+      <h1>Habit tracker</h1>
+      <div class="week-label" id="week-label">Week —</div>
+    </div>
+    <button class="sync-btn" onclick="syncData()">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-label">Sync</span>
+    </button>
+  </div>
+
+  <!-- Pages -->
+  <div id="page-today"></div>
+  <div id="page-weekly" class="hidden"></div>
+  <div id="page-history" class="hidden"></div>
+  <div id="page-settings" class="hidden"></div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="showPage('today')" id="nav-today">
+    <div class="nav-icon">◈</div>Today
+  </button>
+  <button class="nav-item" onclick="showPage('weekly')" id="nav-weekly">
+    <div class="nav-icon">◇</div>Weekly
+  </button>
+  <button class="nav-item" onclick="showPage('history')" id="nav-history">
+    <div class="nav-icon">◻</div>History
+  </button>
+  <button class="nav-item" onclick="showPage('settings')" id="nav-settings">
+    <div class="nav-icon">⊙</div>Settings
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const DAILY_TARGET = 35;
+const WEEKLY_TARGET = 100;
+const TOTAL_TARGET = 180;
+
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const TIERS = [
+  { min: 250, name: 'Superb',    color: '#3ddc84', bg: 'rgba(61,220,132,0.12)' },
+  { min: 200, name: 'Very good', color: '#5b8fff', bg: 'rgba(91,143,255,0.12)' },
+  { min: 150, name: 'Good',      color: '#f5a623', bg: 'rgba(245,166,35,0.12)' },
+  { min: 100, name: 'Well done', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  { min: 0,   name: 'Lost week', color: '#ff5c5c', bg: 'rgba(255,92,92,0.1)' },
+];
+
+// ─── TASK DEFINITIONS ─────────────────────────────────────────────────────────
+const CATEGORIES = [
+  {
+    id: 'fitness', label: 'Fitness',
+    tasks: [
+      { id:'gym',    name:'Gym session',            meta:'Target: 4x/week',   dpts:4, wpts:8,  freq:4,  freqLabel:'4x/week',  freqType:'weekly' },
+      { id:'walk',   name:'Walk 8,000+ steps',      meta:'Daily',             dpts:3, wpts:5,  freq:7,  freqLabel:'Daily',    freqType:'daily' },
+      { id:'rest',   name:'Active rest day',         meta:'1–2x/week',        dpts:3, wpts:4,  freq:1,  freqLabel:'1x/week',  freqType:'weekly' },
+    ]
+  },
+  {
+    id: 'nutrition', label: 'Nutrition',
+    tasks: [
+      { id:'meals2', name:'Ate at least 2 meals',   meta:'5 days/week',       dpts:4, wpts:6,  freq:5,  freqLabel:'5 days',   freqType:'weekly' },
+      { id:'meals3', name:'Ate 3 full meals',        meta:'Bonus — 2 days/week', dpts:2, wpts:4, freq:2, freqLabel:'2 days',  freqType:'weekly', bonus:true },
+      { id:'cook',   name:'Cooked a meal at home',  meta:'3–4x/week',         dpts:3, wpts:5,  freq:3,  freqLabel:'3x/week',  freqType:'weekly' },
+      { id:'protein',name:'Protein supplement',     meta:'Daily',             dpts:4, wpts:6,  freq:7,  freqLabel:'Daily',    freqType:'daily',  nonNeg:true },
+      { id:'vitamins',name:'Vitamins / supplements',meta:'Daily',             dpts:3, wpts:5,  freq:7,  freqLabel:'Daily',    freqType:'daily',  nonNeg:true },
+      { id:'water',  name:'Drank 2+ litres water',  meta:'Daily',             dpts:2, wpts:4,  freq:7,  freqLabel:'Daily',    freqType:'daily' },
+    ]
+  },
+  {
+    id: 'mental', label: 'Mental health',
+    tasks: [
+      { id:'meditate',name:'Meditated / breathwork', meta:'3x/week',         dpts:4, wpts:6,  freq:3,  freqLabel:'3x/week',  freqType:'weekly' },
+      { id:'journal', name:'Journalled / reflected', meta:'3x/week',         dpts:3, wpts:5,  freq:3,  freqLabel:'3x/week',  freqType:'weekly' },
+      { id:'wakeup',  name:'Woke up on time',        meta:'Daily',           dpts:4, wpts:7,  freq:5,  freqLabel:'5 days',   freqType:'weekly' },
+    ]
+  },
+  {
+    id: 'room', label: 'Room & living',
+    tasks: [
+      { id:'tidy',     name:'Quick tidy of room',    meta:'Daily',           dpts:3, wpts:5,  freq:5,  freqLabel:'5 days',   freqType:'weekly',  nonNeg:true },
+      { id:'laundry',  name:'Did laundry on time',   meta:'Weekly',          dpts:3, wpts:7,  freq:1,  freqLabel:'Weekly',   freqType:'weekly' },
+      { id:'iron',     name:'Ironed clothes',         meta:'Weekly',          dpts:3, wpts:6,  freq:1,  freqLabel:'Weekly',   freqType:'weekly' },
+      { id:'deepclean',name:'Deep cleaned room',      meta:'Monthly',         dpts:4, wpts:10, freq:1,  freqLabel:'Monthly',  freqType:'monthly' },
+      { id:'kitchen',  name:'Washed utensils / kitchen', meta:'Daily',       dpts:3, wpts:5,  freq:5,  freqLabel:'5 days',   freqType:'weekly' },
+      { id:'trash',    name:'Took out trash',         meta:'Weekly',          dpts:2, wpts:5,  freq:1,  freqLabel:'Weekly',   freqType:'weekly' },
+    ]
+  },
+  {
+    id: 'hygiene', label: 'Hygiene',
+    tasks: [
+      { id:'shower',   name:'Showered',               meta:'Daily',           dpts:2, wpts:4,  freq:7,  freqLabel:'Daily',    freqType:'daily' },
+      { id:'teeth',    name:'Brushed teeth (am + pm)',meta:'Daily',           dpts:2, wpts:4,  freq:7,  freqLabel:'Daily',    freqType:'daily' },
+      { id:'groom',    name:'Grooming routine',        meta:'Weekly',          dpts:2, wpts:5,  freq:1,  freqLabel:'Weekly',   freqType:'weekly' },
+    ]
+  },
+  {
+    id: 'japanese', label: 'Japanese',
+    tasks: [
+      { id:'vocab',    name:'Vocab / kanji (Anki)',   meta:'Daily',           dpts:5, wpts:8,  freq:7,  freqLabel:'Daily',    freqType:'daily',  nonNeg:true },
+      { id:'immerse',  name:'Passive immersion',       meta:'Daily',           dpts:3, wpts:5,  freq:5,  freqLabel:'5 days',   freqType:'weekly' },
+      { id:'speak',    name:'Spoke Japanese',          meta:'3x/week',         dpts:5, wpts:8,  freq:3,  freqLabel:'3x/week',  freqType:'weekly' },
+      { id:'write',    name:'Wrote Japanese',          meta:'3x/week',         dpts:4, wpts:6,  freq:3,  freqLabel:'3x/week',  freqType:'weekly' },
+      { id:'jpwatch',  name:'Watched with JP subtitles',meta:'2x/week',       dpts:3, wpts:5,  freq:2,  freqLabel:'2x/week',  freqType:'weekly' },
+      { id:'grammar',  name:'Grammar lesson',          meta:'2x/week',         dpts:4, wpts:6,  freq:2,  freqLabel:'2x/week',  freqType:'weekly' },
+    ]
+  },
+  {
+    id: 'finance', label: 'Finance',
+    tasks: [
+      { id:'course',   name:'Trading course lesson',  meta:'2x/week',         dpts:5, wpts:7,  freq:2,  freqLabel:'2x/week',  freqType:'weekly' },
+      { id:'tradelog', name:'Reviewed trading journal',meta:'Weekly',         dpts:4, wpts:7,  freq:1,  freqLabel:'Weekly',   freqType:'weekly' },
+      { id:'stock',    name:'Analysed a stock/chart', meta:'2x/week',         dpts:4, wpts:6,  freq:2,  freqLabel:'2x/week',  freqType:'weekly' },
+      { id:'papertrade',name:'Papertraded / executed trade',meta:'2x/week',   dpts:4, wpts:6,  freq:2,  freqLabel:'2x/week',  freqType:'weekly' },
+      { id:'news',     name:'Finance article / news', meta:'2x/week',         dpts:3, wpts:5,  freq:2,  freqLabel:'2x/week',  freqType:'weekly' },
+      { id:'budget',   name:'Reviewed budget tracker', meta:'Monthly',        dpts:3, wpts:8,  freq:1,  freqLabel:'Monthly',  freqType:'monthly' },
+    ]
+  },
+  {
+    id: 'reading', label: 'Reading',
+    tasks: [
+      { id:'read20',   name:'Read for 20 minutes',    meta:'Daily',           dpts:4, wpts:6,  freq:5,  freqLabel:'5 days',   freqType:'weekly' },
+      { id:'read45',   name:'Read 45+ minutes',        meta:'Bonus',           dpts:2, wpts:4,  freq:3,  freqLabel:'3 days',   freqType:'weekly', bonus:true },
+      { id:'readnotes',name:'Took notes / highlights', meta:'Per session',    dpts:2, wpts:4,  freq:3,  freqLabel:'3 sessions',freqType:'weekly' },
+    ]
+  },
+  {
+    id: 'music', label: 'Music',
+    tasks: [
+      { id:'lyrics',   name:'Worked on lyrics/song',  meta:'3–4x/month',      dpts:6, wpts:8,  freq:3,  freqLabel:'3x/month', freqType:'monthly' },
+      { id:'voicememo',name:'Recorded a rough take',  meta:'Monthly',         dpts:5, wpts:8,  freq:1,  freqLabel:'Monthly',  freqType:'monthly' },
+    ]
+  },
+  {
+    id: 'social', label: 'Social',
+    tasks: [
+      { id:'family',   name:'Called/texted family',   meta:'Weekly',          dpts:4, wpts:8,  freq:1,  freqLabel:'Weekly',   freqType:'weekly' },
+      { id:'podcast',  name:'Learning podcast',        meta:'2x/week',         dpts:3, wpts:5,  freq:2,  freqLabel:'2x/week',  freqType:'weekly' },
+    ]
+  },
+];
+
+const ALL_TASKS = CATEGORIES.flatMap(c => c.tasks);
+const NON_NEG_TASKS = ALL_TASKS.filter(t => t.nonNeg);
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let state = {
+  apiUrl: '',
+  weekKey: '',
+  weekCounts: {},   // taskId -> count this week
+  dayCounts: {},    // "YYYY-MM-DD" -> { taskId: bool }
+  dailyScores: {},  // "YYYY-MM-DD" -> number
+  activeTab: 'fitness',
+  activePage: 'today',
+};
+
+function getWeekKey(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  return monday.toISOString().slice(0, 10);
+}
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getWeekLabel(weekKey) {
+  const start = new Date(weekKey);
+  const end = new Date(weekKey);
+  end.setDate(end.getDate() + 6);
+  const opts = { month: 'short', day: 'numeric' };
+  return `${start.toLocaleDateString('en-GB', opts)} – ${end.toLocaleDateString('en-GB', opts)}`;
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.onload = function() {
+  const url = localStorage.getItem('habitTrackerApiUrl');
+  if (!url) {
+    document.getElementById('setup-overlay').style.display = 'flex';
+    document.getElementById('main-app').style.display = 'none';
+  } else {
+    state.apiUrl = url;
+    initApp();
+  }
+};
+
+function saveApiUrl() {
+  const url = document.getElementById('api-url-input').value.trim();
+  if (!url.startsWith('https://script.google.com')) {
+    showToast('Please enter a valid Apps Script URL');
+    return;
+  }
+  localStorage.setItem('habitTrackerApiUrl', url);
+  state.apiUrl = url;
+  document.getElementById('setup-overlay').style.display = 'none';
+  initApp();
+}
+
+async function initApp() {
+  document.getElementById('main-app').style.display = 'block';
+  state.weekKey = getWeekKey(new Date());
+  document.getElementById('week-label').textContent = 'Week of ' + getWeekLabel(state.weekKey);
+
+  const saved = await loadFromSheet();
+  if (saved) {
+    state.weekCounts = saved.weekCounts || {};
+    state.dayCounts = saved.dayCounts || {};
+    state.dailyScores = saved.dailyScores || {};
+  }
+  renderAll();
+}
+
+// ─── SYNC ─────────────────────────────────────────────────────────────────────
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  dot.className = 'sync-dot ' + status;
+  label.textContent = status === 'syncing' ? 'Saving...' : status === 'synced' ? 'Saved' : 'Sync';
+}
+
+async function callApi(payload) {
+  const res = await fetch(state.apiUrl, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+async function saveToSheet() {
+  setSyncStatus('syncing');
+  try {
+    await callApi({ action: 'save', key: 'week_' + state.weekKey, value: {
+      weekCounts: state.weekCounts,
+      dayCounts: state.dayCounts,
+      dailyScores: state.dailyScores,
+    }});
+    setSyncStatus('synced');
+    setTimeout(() => setSyncStatus(''), 2000);
+  } catch(e) {
+    setSyncStatus('');
+    showToast('Sync failed — check your connection');
+  }
+}
+
+async function loadFromSheet() {
+  setSyncStatus('syncing');
+  try {
+    const res = await callApi({ action: 'load' });
+    setSyncStatus('synced');
+    setTimeout(() => setSyncStatus(''), 2000);
+    if (res.success && res.data['week_' + state.weekKey]) {
+      return res.data['week_' + state.weekKey];
+    }
+  } catch(e) {
+    setSyncStatus('');
+  }
+  return null;
+}
+
+async function syncData() {
+  const saved = await loadFromSheet();
+  if (saved) {
+    state.weekCounts = saved.weekCounts || {};
+    state.dayCounts = saved.dayCounts || {};
+    state.dailyScores = saved.dailyScores || {};
+    renderAll();
+    showToast('Synced from Google Sheets');
+  }
+}
+
+// ─── TOGGLE TASK ──────────────────────────────────────────────────────────────
+function toggleTask(taskId) {
+  const today = getTodayKey();
+  if (!state.dayCounts[today]) state.dayCounts[today] = {};
+  const wasDone = !!state.dayCounts[today][taskId];
+  state.dayCounts[today][taskId] = !wasDone;
+
+  if (!state.weekCounts[taskId]) state.weekCounts[taskId] = 0;
+  state.weekCounts[taskId] += wasDone ? -1 : 1;
+  if (state.weekCounts[taskId] < 0) state.weekCounts[taskId] = 0;
+
+  const todayPts = calcDailyPts(today);
+  state.dailyScores[today] = todayPts;
+
+  renderAll();
+  saveToSheet();
+}
+
+// ─── CALCULATIONS ─────────────────────────────────────────────────────────────
+function calcDailyPts(dateKey) {
+  const day = state.dayCounts[dateKey] || {};
+  return ALL_TASKS.reduce((sum, t) => sum + (day[t.id] ? t.dpts : 0), 0);
+}
+
+function calcWeeklyUnlockPts() {
+  let total = 0;
+  ALL_TASKS.forEach(t => {
+    const count = state.weekCounts[t.id] || 0;
+    if (count >= t.freq) total += t.wpts;
+  });
+  return total;
+}
+
+function calcPenalties() {
+  const penalties = [];
+  const counts = state.weekCounts;
+  if ((counts['protein'] || 0) < 4) penalties.push({ name: 'Protein missed 3+ days', pts: -10 });
+  if ((counts['meals2'] || 0) < 4) penalties.push({ name: 'Under 2 meals — 3+ days', pts: -10 });
+  if ((counts['tidy'] || 0) === 0) penalties.push({ name: 'Room not tidied all week', pts: -15 });
+  if ((counts['gym'] || 0) === 0) penalties.push({ name: 'Zero gym sessions', pts: -12 });
+  if ((counts['vocab'] || 0) === 0) penalties.push({ name: 'Zero Japanese vocab days', pts: -10 });
+  return penalties;
+}
+
+function calcDailyWins() {
+  return Object.entries(state.dailyScores).filter(([k, v]) => {
+    return getWeekKey(k) === state.weekKey && v >= DAILY_TARGET;
+  }).length;
+}
+
+function getTier(score) {
+  for (const t of TIERS) { if (score >= t.min) return t; }
+  return TIERS[TIERS.length - 1];
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderPage(state.activePage);
+}
+
+function showPage(page) {
+  state.activePage = page;
+  ['today','weekly','history','settings'].forEach(p => {
+    document.getElementById('page-' + p).classList.toggle('hidden', p !== page);
+    document.getElementById('nav-' + p).classList.toggle('active', p === page);
+  });
+  renderPage(page);
+}
+
+function renderPage(page) {
+  if (page === 'today') renderToday();
+  else if (page === 'weekly') renderWeekly();
+  else if (page === 'history') renderHistory();
+  else if (page === 'settings') renderSettings();
+}
+
+// ─── TODAY PAGE ───────────────────────────────────────────────────────────────
+function renderToday() {
+  const today = getTodayKey();
+  const todayPts = calcDailyPts(today);
+  const weeklyPts = calcWeeklyUnlockPts();
+  const penalties = calcPenalties();
+  const penaltyTotal = penalties.reduce((s, p) => s + p.pts, 0);
+  const totalPts = Object.values(state.dailyScores)
+    .filter((_, i) => getWeekKey(Object.keys(state.dailyScores)[i]) === state.weekKey)
+    .reduce((s, v) => s + v, 0) + weeklyPts + penaltyTotal;
+
+  const dailyWins = calcDailyWins();
+  const tier = getTier(totalPts);
+
+  let html = '';
+
+  // Score cards
+  html += `<div class="score-row">
+    <div class="scard">
+      <div class="scard-val ${todayPts >= DAILY_TARGET ? 'green' : todayPts >= 20 ? 'amber' : 'dim'}">${todayPts}</div>
+      <div class="scard-lbl">Today</div>
+    </div>
+    <div class="scard">
+      <div class="scard-val ${dailyWins >= 4 ? 'green' : 'amber'}">${dailyWins}/7</div>
+      <div class="scard-lbl">Win days</div>
+    </div>
+    <div class="scard">
+      <div class="scard-val ${totalPts >= WEEKLY_TARGET ? 'green' : totalPts >= 60 ? 'amber' : 'red'}">${totalPts}</div>
+      <div class="scard-lbl">Week total</div>
+    </div>
+  </div>`;
+
+  // Progress bars
+  const dpct = Math.min(Math.round((todayPts / DAILY_TARGET) * 100), 100);
+  const wpct = Math.min(Math.round((totalPts / WEEKLY_TARGET) * 100), 100);
+  const dpcolor = todayPts >= DAILY_TARGET ? '#3ddc84' : todayPts >= 20 ? '#f5a623' : '#ff5c5c';
+  const wpcolor = totalPts >= WEEKLY_TARGET ? '#3ddc84' : totalPts >= 60 ? '#f5a623' : '#ff5c5c';
+
+  html += `
+  <div class="prog-block">
+    <div class="prog-top"><span>Daily target (${DAILY_TARGET} pts)</span><span>${todayPts} pts</span></div>
+    <div class="prog-track"><div class="prog-fill" style="width:${dpct}%;background:${dpcolor}"></div></div>
+  </div>
+  <div class="prog-block">
+    <div class="prog-top"><span>Weekly target (${WEEKLY_TARGET} pts)</span><span>${totalPts} pts</span></div>
+    <div class="prog-track"><div class="prog-fill" style="width:${wpct}%;background:${wpcolor}"></div></div>
+  </div>`;
+
+  // Tier banner
+  html += `<div class="tier-banner" style="border-color:${tier.color}22">
+    <div>
+      <div class="tier-name" style="color:${tier.color}">${tier.name}</div>
+      <div class="tier-sub">${getTierSub(totalPts)}</div>
+    </div>
+    <div class="tier-pill" style="background:${tier.bg};color:${tier.color}">${totalPts} pts</div>
+  </div>`;
+
+  // Day dots
+  const weekStart = new Date(state.weekKey);
+  html += '<div class="day-row">';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    const pts = state.dailyScores[key] || 0;
+    const isToday = key === today;
+    const isPast = d < new Date() && !isToday;
+    const isWin = pts >= DAILY_TARGET;
+    const isLose = isPast && pts < DAILY_TARGET && pts > 0;
+    const cls = isToday ? 'today' : isWin ? 'win' : isLose ? 'lose' : '';
+    html += `<div class="day-dot ${cls}"><div class="dname">${DAYS[d.getDay()]}</div><div class="dpts">${pts > 0 ? pts : '—'}</div></div>`;
+  }
+  html += '</div>';
+
+  // Tabs
+  html += '<div class="tabs">';
+  CATEGORIES.forEach(cat => {
+    html += `<div class="tab${state.activeTab === cat.id ? ' active' : ''}" onclick="switchTab('${cat.id}')">${cat.label}</div>`;
+  });
+  html += '</div>';
+
+  // Task list
+  const cat = CATEGORIES.find(c => c.id === state.activeTab);
+  const dayDone = state.dayCounts[today] || {};
+  html += `<div class="section-head">${cat.label}</div><div class="task-list">`;
+  cat.tasks.forEach(t => {
+    const done = !!dayDone[t.id];
+    const wptTag = t.bonus ? 'bonus-tag' : t.nonNeg ? 'penalty-tag' : '';
+    const wptLabel = t.bonus ? `+${t.wpts} bonus` : t.nonNeg ? `+${t.wpts} non-neg` : `+${t.wpts} wkly`;
+    html += `<div class="task-item${done ? ' done' : ''}" onclick="toggleTask('${t.id}')">
+      <div class="checkmark${done ? ' checked' : ''}">
+        <svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5L4.5 8.5L11 1" stroke="black" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="task-info">
+        <div class="task-name">${t.name}</div>
+        <div class="task-meta">${t.meta}</div>
+      </div>
+      <div class="task-pts">
+        <div class="dpt${done ? '' : ' inactive'}">${done ? '+' + t.dpts : t.dpts + ' pts'}</div>
+        <div class="wpt ${wptTag}">${wptLabel}</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // Penalties
+  if (penalties.length > 0) {
+    html += `<div class="penalty-panel"><div class="penalty-title">Active penalties</div>`;
+    penalties.forEach(p => {
+      html += `<div class="penalty-row"><span>${p.name}</span><span class="penalty-pts">${p.pts} pts</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('page-today').innerHTML = html;
+}
+
+function switchTab(tabId) {
+  state.activeTab = tabId;
+  renderToday();
+}
+
+function getTierSub(pts) {
+  if (pts >= 250) return 'Elite week. Everything is firing.';
+  if (pts >= 200) return 'Disciplined and consistent.';
+  if (pts >= 150) return 'Solid effort, most areas covered.';
+  if (pts >= 100) return 'Basics covered. Keep building.';
+  return 'Hit 100 pts to earn your first tier this week.';
+}
+
+// ─── WEEKLY PAGE ──────────────────────────────────────────────────────────────
+function renderWeekly() {
+  const weeklyPts = calcWeeklyUnlockPts();
+  const penalties = calcPenalties();
+  const penaltyTotal = penalties.reduce((s, p) => s + p.pts, 0);
+  const dailyWins = calcDailyWins();
+
+  let html = `<div class="section-head">Weekly unlocks</div>`;
+  html += `<div class="unlock-panel"><div class="unlock-header">
+    <div class="unlock-title">Frequency targets</div>
+    <div class="unlock-total">${weeklyPts} pts unlocked</div>
+  </div>`;
+
+  ALL_TASKS.forEach(t => {
+    const count = state.weekCounts[t.id] || 0;
+    const done = count >= t.freq;
+    const pct = Math.min(Math.round((count / t.freq) * 100), 100);
+    const cls = done ? 'unlocked' : count > 0 ? 'partial' : 'locked';
+    const fillCls = done ? '' : 'partial';
+    html += `<div class="unlock-row">
+      <div class="unlock-name">${t.name}</div>
+      <div class="unlock-bar-wrap">
+        <div class="unlock-mini-track"><div class="unlock-mini-fill ${fillCls}" style="width:${pct}%"></div></div>
+        <div class="unlock-prog">${count}/${t.freq}</div>
+      </div>
+      <div class="unlock-pts ${cls}">${done ? '+' + t.wpts + ' ✓' : '+' + t.wpts}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // Daily wins
+  html += `<div class="unlock-panel mt8"><div class="unlock-header">
+    <div class="unlock-title">Daily wins this week</div>
+    <div class="unlock-total" style="color:${dailyWins >= 4 ? '#3ddc84' : '#f5a623'}">${dailyWins} / 7 days</div>
+  </div>`;
+  const weekStart = new Date(state.weekKey);
+  const today = getTodayKey();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    const pts = state.dailyScores[key] || 0;
+    const isWin = pts >= DAILY_TARGET;
+    html += `<div class="unlock-row">
+      <div class="unlock-name">${DAYS[d.getDay()]} ${key === today ? '(today)' : ''}</div>
+      <div class="unlock-pts ${isWin ? 'unlocked' : pts > 0 ? 'partial' : 'locked'}">${pts} pts${isWin ? ' ✓' : ''}</div>
+    </div>`;
+  }
+  html += '</div>';
+
+  if (penalties.length > 0) {
+    html += `<div class="penalty-panel"><div class="penalty-title">Penalties (${penaltyTotal} pts)</div>`;
+    penalties.forEach(p => {
+      html += `<div class="penalty-row"><span>${p.name}</span><span class="penalty-pts">${p.pts} pts</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('page-weekly').innerHTML = html;
+}
+
+// ─── HISTORY PAGE ─────────────────────────────────────────────────────────────
+async function renderHistory() {
+  document.getElementById('page-history').innerHTML = '<div class="section-head">Loading history...</div>';
+  let history = [];
+  try {
+    const res = await callApi({ action: 'loadHistory' });
+    if (res.success) history = res.history.reverse();
+  } catch(e) {}
+
+  let html = '<div class="section-head">Past weeks</div>';
+  if (history.length === 0) {
+    html += '<div style="color:var(--text3);font-size:13px;padding:20px 0">No past weeks yet. Complete your first week to see history here.</div>';
+  } else {
+    html += '<div class="history-panel">';
+    history.forEach(h => {
+      const tier = getTier(h.score);
+      html += `<div class="history-row">
+        <div class="history-week">${h.week}</div>
+        <div class="history-wins" style="color:var(--text3)">${h.dailyWins}/7 days</div>
+        <div class="history-score" style="color:${tier.color}">${h.score}</div>
+        <div class="history-tier" style="background:${tier.bg};color:${tier.color}">${tier.name}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  document.getElementById('page-history').innerHTML = html;
+}
+
+// ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
+function renderSettings() {
+  const url = localStorage.getItem('habitTrackerApiUrl') || '';
+  let html = `
+  <div class="section-head">Settings</div>
+  <div class="task-list">
+    <div class="task-item" style="cursor:default">
+      <div class="task-info">
+        <div class="task-name">Apps Script URL</div>
+        <div class="task-meta" style="word-break:break-all">${url.slice(0,60)}...</div>
+      </div>
+    </div>
+    <div class="task-item" onclick="changeApiUrl()">
+      <div class="task-info"><div class="task-name" style="color:var(--blue)">Change API URL</div></div>
+    </div>
+    <div class="task-item" onclick="resetWeek()">
+      <div class="task-info"><div class="task-name" style="color:var(--amber)">Reset current week</div></div>
+    </div>
+    <div class="task-item" onclick="saveWeeklyHistory()">
+      <div class="task-info">
+        <div class="task-name" style="color:var(--green)">Archive week to history</div>
+        <div class="task-meta">Do this every Sunday evening</div>
+      </div>
+    </div>
+  </div>
+  <div class="section-head mt8">About</div>
+  <div class="task-list">
+    <div class="task-item" style="cursor:default">
+      <div class="task-info">
+        <div class="task-name">Daily target</div>
+        <div class="task-meta">${DAILY_TARGET} points</div>
+      </div>
+    </div>
+    <div class="task-item" style="cursor:default">
+      <div class="task-info">
+        <div class="task-name">Weekly target</div>
+        <div class="task-meta">${WEEKLY_TARGET} points to win the week</div>
+      </div>
+    </div>
+    <div class="task-item" style="cursor:default">
+      <div class="task-info">
+        <div class="task-name">Win day condition</div>
+        <div class="task-meta">Score ${DAILY_TARGET}+ pts in a day</div>
+      </div>
+    </div>
+    <div class="task-item" style="cursor:default">
+      <div class="task-info">
+        <div class="task-name">Win week condition</div>
+        <div class="task-meta">100+ total pts AND 4+ win days</div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('page-settings').innerHTML = html;
+}
+
+function changeApiUrl() {
+  const url = prompt('Enter new Apps Script URL:');
+  if (url && url.startsWith('https://script.google.com')) {
+    localStorage.setItem('habitTrackerApiUrl', url);
+    state.apiUrl = url;
+    showToast('API URL updated');
+    renderSettings();
+  }
+}
+
+function resetWeek() {
+  if (confirm('Reset all data for this week? This cannot be undone.')) {
+    state.weekCounts = {};
+    state.dayCounts = {};
+    state.dailyScores = {};
+    saveToSheet();
+    renderAll();
+    showToast('Week reset');
+  }
+}
+
+async function saveWeeklyHistory() {
+  const weeklyPts = calcWeeklyUnlockPts();
+  const penalties = calcPenalties();
+  const penaltyTotal = penalties.reduce((s, p) => s + p.pts, 0);
+  const dailyTotal = Object.entries(state.dailyScores)
+    .filter(([k]) => getWeekKey(k) === state.weekKey)
+    .reduce((s, [, v]) => s + v, 0);
+  const totalPts = dailyTotal + weeklyPts + penaltyTotal;
+  const tier = getTier(totalPts);
+  const dailyWins = calcDailyWins();
+  try {
+    await callApi({
+      action: 'saveWeekly',
+      week: getWeekLabel(state.weekKey),
+      score: totalPts,
+      tier: tier.name,
+      dailyWins: dailyWins,
+      breakdown: { daily: dailyTotal, weekly: weeklyPts, penalties: penaltyTotal }
+    });
+    showToast('Week archived to history!');
+  } catch(e) {
+    showToast('Failed to archive — check connection');
+  }
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
