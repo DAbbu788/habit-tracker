@@ -387,10 +387,34 @@ function saveApiUrl() {
     showToast('Please enter a valid Apps Script URL');
     return;
   }
-  localStorage.setItem('habitTrackerApiUrl', url);
+  // Save to both storages for resilience
+  try { localStorage.setItem('habitTrackerApiUrl', url); } catch(e) {}
+  try { sessionStorage.setItem('habitTrackerApiUrl', url); } catch(e) {}
+  // Also save to a cookie as final fallback (expires in 1 year)
+  document.cookie = `habitApiUrl=${encodeURIComponent(url)};max-age=31536000;path=/`;
   state.apiUrl = url;
   document.getElementById('setup-overlay').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
   initApp();
+}
+
+function getStoredUrl() {
+  // Try localStorage first
+  try {
+    const url = localStorage.getItem('habitTrackerApiUrl');
+    if (url) return url;
+  } catch(e) {}
+  // Try sessionStorage
+  try {
+    const url = sessionStorage.getItem('habitTrackerApiUrl');
+    if (url) return url;
+  } catch(e) {}
+  // Try cookie
+  try {
+    const match = document.cookie.match(/habitApiUrl=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  } catch(e) {}
+  return null;
 }
 
 async function initApp() {
@@ -762,7 +786,7 @@ async function renderHistory() {
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
 function renderSettings() {
-  const url = localStorage.getItem('habitTrackerApiUrl') || '';
+  const url = getStoredUrl() || '';
   let html = `
   <div class="section-head">Settings</div>
   <div class="task-list">
@@ -818,7 +842,9 @@ function renderSettings() {
 function changeApiUrl() {
   const url = prompt('Enter new Apps Script URL:');
   if (url && url.startsWith('https://script.google.com')) {
-    localStorage.setItem('habitTrackerApiUrl', url);
+    try { localStorage.setItem('habitTrackerApiUrl', url); } catch(e) {}
+    try { sessionStorage.setItem('habitTrackerApiUrl', url); } catch(e) {}
+    document.cookie = `habitApiUrl=${encodeURIComponent(url)};max-age=31536000;path=/`;
     state.apiUrl = url;
     showToast('API URL updated');
     renderSettings();
