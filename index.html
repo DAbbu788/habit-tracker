@@ -234,15 +234,14 @@
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const DAILY_TARGET = 35;
-const WEEKLY_TARGET = 100;
+const WEEKLY_TARGET = 150;
 const TOTAL_TARGET = 180;
 
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const TIERS = [
   { min: 250, name: 'Superb',    color: '#3ddc84', bg: 'rgba(61,220,132,0.12)' },
   { min: 200, name: 'Very good', color: '#5b8fff', bg: 'rgba(91,143,255,0.12)' },
-  { min: 150, name: 'Good',      color: '#f5a623', bg: 'rgba(245,166,35,0.12)' },
-  { min: 100, name: 'Well done', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  { min: 150, name: 'Well done', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
   { min: 0,   name: 'Lost week', color: '#ff5c5c', bg: 'rgba(255,92,92,0.1)' },
 ];
 
@@ -352,6 +351,7 @@ let state = {
   dailyScores: {},  // "YYYY-MM-DD" -> number
   activeTab: 'fitness',
   activePage: 'today',
+  selectedDay: null,
 };
 
 function getWeekKey(date) {
@@ -491,20 +491,25 @@ async function syncData() {
 
 // ─── TOGGLE TASK ──────────────────────────────────────────────────────────────
 function toggleTask(taskId) {
-  const today = getTodayKey();
-  if (!state.dayCounts[today]) state.dayCounts[today] = {};
-  const wasDone = !!state.dayCounts[today][taskId];
-  state.dayCounts[today][taskId] = !wasDone;
+  const activeDay = state.selectedDay || getTodayKey();
+  if (!state.dayCounts[activeDay]) state.dayCounts[activeDay] = {};
+  const wasDone = !!state.dayCounts[activeDay][taskId];
+  state.dayCounts[activeDay][taskId] = !wasDone;
 
   if (!state.weekCounts[taskId]) state.weekCounts[taskId] = 0;
   state.weekCounts[taskId] += wasDone ? -1 : 1;
   if (state.weekCounts[taskId] < 0) state.weekCounts[taskId] = 0;
 
-  const todayPts = calcDailyPts(today);
-  state.dailyScores[today] = todayPts;
+  const dayPts = calcDailyPts(activeDay);
+  state.dailyScores[activeDay] = dayPts;
 
   renderAll();
   saveToSheet();
+}
+
+function selectDay(dateKey) {
+  state.selectedDay = dateKey;
+  renderToday();
 }
 
 // ─── CALCULATIONS ─────────────────────────────────────────────────────────────
@@ -568,44 +573,57 @@ function renderPage(page) {
 // ─── TODAY PAGE ───────────────────────────────────────────────────────────────
 function renderToday() {
   const today = getTodayKey();
-  const todayPts = calcDailyPts(today);
+  const activeDay = state.selectedDay || today;
+  const activeDayPts = calcDailyPts(activeDay);
   const weeklyPts = calcWeeklyUnlockPts();
   const penalties = calcPenalties();
   const penaltyTotal = penalties.reduce((s, p) => s + p.pts, 0);
-  const totalPts = Object.values(state.dailyScores)
-    .filter((_, i) => getWeekKey(Object.keys(state.dailyScores)[i]) === state.weekKey)
-    .reduce((s, v) => s + v, 0) + weeklyPts + penaltyTotal;
+  const totalPts = Object.entries(state.dailyScores)
+    .filter(([k]) => getWeekKey(k) === state.weekKey)
+    .reduce((s, [, v]) => s + v, 0) + weeklyPts + penaltyTotal;
 
   const dailyWins = calcDailyWins();
   const tier = getTier(totalPts);
+  const isViewingToday = activeDay === today;
+  const activeDayLabel = isViewingToday ? 'Today' : DAYS[new Date(activeDay).getDay()];
 
   let html = '';
+
+  // Selected day banner (shown when viewing a past day)
+  if (!isViewingToday) {
+    const opts = { weekday: 'long', month: 'short', day: 'numeric' };
+    const displayDate = new Date(activeDay + 'T00:00:00').toLocaleDateString('en-GB', opts);
+    html += `<div style="background:var(--amber-dim);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius-sm);padding:9px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;color:var(--amber)">Editing: ${displayDate}</span>
+      <span style="font-size:12px;color:var(--amber);cursor:pointer;text-decoration:underline" onclick="selectDay(null)">Back to today</span>
+    </div>`;
+  }
 
   // Score cards
   html += `<div class="score-row">
     <div class="scard">
-      <div class="scard-val ${todayPts >= DAILY_TARGET ? 'green' : todayPts >= 20 ? 'amber' : 'dim'}">${todayPts}</div>
-      <div class="scard-lbl">Today</div>
+      <div class="scard-val ${activeDayPts >= DAILY_TARGET ? 'green' : activeDayPts >= 20 ? 'amber' : 'dim'}">${activeDayPts}</div>
+      <div class="scard-lbl">${activeDayLabel}</div>
     </div>
     <div class="scard">
       <div class="scard-val ${dailyWins >= 4 ? 'green' : 'amber'}">${dailyWins}/7</div>
       <div class="scard-lbl">Win days</div>
     </div>
     <div class="scard">
-      <div class="scard-val ${totalPts >= WEEKLY_TARGET ? 'green' : totalPts >= 60 ? 'amber' : 'red'}">${totalPts}</div>
+      <div class="scard-val ${totalPts >= WEEKLY_TARGET ? 'green' : totalPts >= 100 ? 'amber' : 'red'}">${totalPts}</div>
       <div class="scard-lbl">Week total</div>
     </div>
   </div>`;
 
   // Progress bars
-  const dpct = Math.min(Math.round((todayPts / DAILY_TARGET) * 100), 100);
+  const dpct = Math.min(Math.round((activeDayPts / DAILY_TARGET) * 100), 100);
   const wpct = Math.min(Math.round((totalPts / WEEKLY_TARGET) * 100), 100);
-  const dpcolor = todayPts >= DAILY_TARGET ? '#3ddc84' : todayPts >= 20 ? '#f5a623' : '#ff5c5c';
-  const wpcolor = totalPts >= WEEKLY_TARGET ? '#3ddc84' : totalPts >= 60 ? '#f5a623' : '#ff5c5c';
+  const dpcolor = activeDayPts >= DAILY_TARGET ? '#3ddc84' : activeDayPts >= 20 ? '#f5a623' : '#ff5c5c';
+  const wpcolor = totalPts >= WEEKLY_TARGET ? '#3ddc84' : totalPts >= 100 ? '#f5a623' : '#ff5c5c';
 
   html += `
   <div class="prog-block">
-    <div class="prog-top"><span>Daily target (${DAILY_TARGET} pts)</span><span>${todayPts} pts</span></div>
+    <div class="prog-top"><span>${activeDayLabel} target (${DAILY_TARGET} pts)</span><span>${activeDayPts} pts</span></div>
     <div class="prog-track"><div class="prog-fill" style="width:${dpct}%;background:${dpcolor}"></div></div>
   </div>
   <div class="prog-block">
@@ -622,7 +640,7 @@ function renderToday() {
     <div class="tier-pill" style="background:${tier.bg};color:${tier.color}">${totalPts} pts</div>
   </div>`;
 
-  // Day dots
+  // Day dots — clickable, selected day highlighted
   const weekStart = new Date(state.weekKey);
   html += '<div class="day-row">';
   for (let i = 0; i < 7; i++) {
@@ -631,11 +649,21 @@ function renderToday() {
     const key = d.toISOString().slice(0, 10);
     const pts = state.dailyScores[key] || 0;
     const isToday = key === today;
-    const isPast = d < new Date() && !isToday;
+    const isSelected = key === activeDay;
+    const isFuture = d > new Date() && !isToday;
     const isWin = pts >= DAILY_TARGET;
-    const isLose = isPast && pts < DAILY_TARGET && pts > 0;
-    const cls = isToday ? 'today' : isWin ? 'win' : isLose ? 'lose' : '';
-    html += `<div class="day-dot ${cls}"><div class="dname">${DAYS[d.getDay()]}</div><div class="dpts">${pts > 0 ? pts : '—'}</div></div>`;
+    const isLose = !isFuture && !isToday && pts < DAILY_TARGET && key !== activeDay;
+    let cls = '';
+    if (isSelected && !isToday) cls = 'selected';
+    else if (isToday) cls = 'today';
+    else if (isWin) cls = 'win';
+    else if (isLose && pts > 0) cls = 'lose';
+    const clickable = !isFuture ? `onclick="selectDay('${key}')"` : '';
+    const style = isSelected && !isToday ? 'border-color:var(--amber);background:var(--amber-dim)' : isFuture ? 'opacity:0.3;cursor:default' : 'cursor:pointer';
+    html += `<div class="day-dot ${cls}" ${clickable} style="${style}">
+      <div class="dname" style="${isSelected && !isToday ? 'color:var(--amber)' : ''}">${DAYS[d.getDay()]}</div>
+      <div class="dpts" style="${isSelected && !isToday ? 'color:var(--amber)' : ''}">${pts > 0 ? pts : '—'}</div>
+    </div>`;
   }
   html += '</div>';
 
@@ -648,7 +676,7 @@ function renderToday() {
 
   // Task list
   const cat = CATEGORIES.find(c => c.id === state.activeTab);
-  const dayDone = state.dayCounts[today] || {};
+  const dayDone = state.dayCounts[activeDay] || {};
   html += `<div class="section-head">${cat.label}</div><div class="task-list">`;
   cat.tasks.forEach(t => {
     const done = !!dayDone[t.id];
@@ -690,9 +718,9 @@ function switchTab(tabId) {
 function getTierSub(pts) {
   if (pts >= 250) return 'Elite week. Everything is firing.';
   if (pts >= 200) return 'Disciplined and consistent.';
-  if (pts >= 150) return 'Solid effort, most areas covered.';
-  if (pts >= 100) return 'Basics covered. Keep building.';
-  return 'Hit 100 pts to earn your first tier this week.';
+  if (pts >= 150) return 'Weekly target hit. Keep the streak going.';
+  if (pts >= 100) return 'Getting close — 4 daily wins needed to win the week.';
+  return 'Hit 150 pts + 4 daily wins to win this week.';
 }
 
 // ─── WEEKLY PAGE ──────────────────────────────────────────────────────────────
@@ -832,7 +860,7 @@ function renderSettings() {
     <div class="task-item" style="cursor:default">
       <div class="task-info">
         <div class="task-name">Win week condition</div>
-        <div class="task-meta">100+ total pts AND 4+ win days</div>
+        <div class="task-meta">150+ total pts AND 4+ win days</div>
       </div>
     </div>
   </div>`;
